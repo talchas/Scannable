@@ -25,6 +25,8 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.BufferUtils;
+import java.nio.FloatBuffer;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -32,6 +34,9 @@ import java.util.*;
 @SideOnly(Side.CLIENT)
 public enum ScanManager {
     INSTANCE;
+
+    private final FloatBuffer savedMv = BufferUtils.createFloatBuffer(16);
+    private final FloatBuffer savedProj = BufferUtils.createFloatBuffer(16);
 
     // --------------------------------------------------------------------- //
 
@@ -229,6 +234,8 @@ public enum ScanManager {
     public void onRenderLast(final RenderWorldLastEvent event) {
         final boolean isUsingShaders = ProxyOptiFine.INSTANCE.isShaderPackLoaded();
         if (isUsingShaders) {
+            getMatrixRaw(GL11.GL_PROJECTION_MATRIX, savedProj);
+            getMatrixRaw(GL11.GL_MODELVIEW_MATRIX, savedMv);
             return;
         }
 
@@ -260,10 +267,17 @@ public enum ScanManager {
             // Using shaders so we render as game overlay; restore matrices as used for world rendering.
             GlStateManager.matrixMode(GL11.GL_PROJECTION);
             GlStateManager.pushMatrix();
+            GlStateManager.loadIdentity();
+            GlStateManager.multMatrix(savedProj);
+            savedProj.position(0);
+                
             GlStateManager.matrixMode(GL11.GL_MODELVIEW);
             GlStateManager.pushMatrix();
+            GlStateManager.loadIdentity();
+            GlStateManager.multMatrix(savedMv);
+            savedMv.position(0);
 
-            Minecraft.getMinecraft().entityRenderer.setupCameraTransform(event.getPartialTicks(), 2);
+            //Minecraft.getMinecraft().entityRenderer.setupCameraTransform(event.getPartialTicks(), 2);
             render(event.getPartialTicks());
 
             GlStateManager.matrixMode(GL11.GL_PROJECTION);
@@ -323,4 +337,12 @@ public enum ScanManager {
         lastScanCenter = null;
         currentStart = -1;
     }
+
+    private void getMatrixRaw(final int matrix, final FloatBuffer into) {
+        into.position(0);
+        GlStateManager.getFloat(matrix, into);
+        into.position(0);
+    }
+
+
 }

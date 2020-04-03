@@ -170,14 +170,22 @@ public enum ScannerRenderer {
         }
     }
 
+    private final FloatBuffer savedMv = BufferUtils.createFloatBuffer(16);
+    private final FloatBuffer savedProj = BufferUtils.createFloatBuffer(16);
+
+
     @SubscribeEvent
     public void onWorldRender(final RenderWorldLastEvent event) {
         final boolean isRenderingEffect = framebufferDepthTexture != 0;
         if (isRenderingEffect) {
-            final boolean isUsingShaders = ProxyOptiFine.INSTANCE.isShaderPackLoaded();
+            final boolean isUsingShaders = true; //ProxyOptiFine.INSTANCE.isShaderPackLoaded();
             if (isUsingShaders) {
+                getMatrixRaw(GL11.GL_PROJECTION_MATRIX, savedProj);
+                getMatrixRaw(GL11.GL_MODELVIEW_MATRIX, savedMv);
+
                 // Using shaders, need to copy depth and render as a game overlay.
                 copyDepthTexture();
+                
             } else {
                 // Regular rendering, just render additively in world space.
                 render(event.getPartialTicks());
@@ -189,15 +197,21 @@ public enum ScannerRenderer {
     public void onPreRenderGameOverlay(final RenderGameOverlayEvent.Pre event) {
         final boolean isRenderingEffect = framebufferDepthTexture != 0;
         if (event.getType() == RenderGameOverlayEvent.ElementType.ALL && isRenderingEffect) {
-            final boolean isUsingShaders = ProxyOptiFine.INSTANCE.isShaderPackLoaded();
+            final boolean isUsingShaders = true;// ProxyOptiFine.INSTANCE.isShaderPackLoaded();
             if (isUsingShaders) {
                 // Using shaders so we render as game overlay; restore matrices as used for world rendering.
                 GlStateManager.matrixMode(GL11.GL_PROJECTION);
                 GlStateManager.pushMatrix();
+                GlStateManager.loadIdentity();
+                GlStateManager.multMatrix(savedProj);
+                savedProj.position(0);
+                
                 GlStateManager.matrixMode(GL11.GL_MODELVIEW);
                 GlStateManager.pushMatrix();
+                GlStateManager.loadIdentity();
+                GlStateManager.multMatrix(savedMv);
+                savedMv.position(0);
 
-                Minecraft.getMinecraft().entityRenderer.setupCameraTransform(event.getPartialTicks(), 2);
                 render(event.getPartialTicks());
 
                 GlStateManager.matrixMode(GL11.GL_PROJECTION);
@@ -228,7 +242,7 @@ public enum ScannerRenderer {
             return;
         }
 
-        if (ProxyOptiFine.INSTANCE.isShaderPackLoaded()) {
+        if (true) { // ProxyOptiFine.INSTANCE.isShaderPackLoaded()
             mode = Mode.OPTIFINE;
         } else if (mode == Mode.OPTIFINE || mode == null) {
             mode = Settings.injectDepthTexture ? Mode.INJECT : Mode.RENDER;
@@ -585,6 +599,12 @@ public enum ScannerRenderer {
         GlStateManager.getFloat(matrix, float16Buffer);
         float16Buffer.position(0);
         into.load(float16Buffer);
+    }
+
+    private void getMatrixRaw(final int matrix, final FloatBuffer into) {
+        into.position(0);
+        GlStateManager.getFloat(matrix, into);
+        into.position(0);
     }
 
     private void setUniform(final int uniform, final float value) {
